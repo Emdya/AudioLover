@@ -116,6 +116,177 @@ AudioLover/
 
 4. Create a Pull Request on GitHub
 
+Backend deliverables · MD
+Copy
+
+# AudioLover Backend Deliverables
+
+## Branch Naming Convention
+
+```
+feature/[task-name]-[yourInitials]-v[versionNum]
+```
+
+Example: `feature/backend-spotify-api-ep-v1`
+
+---
+
+## Deliverable 1: Spotify API and Python Backend
+
+**Branch:** `feature/backend-spotify-api-yourInitials-versionNum`
+
+**Tasks:**
+- Set up Python Flask server
+- Set up Spotify Developer account and get API credentials
+- Create endpoint to fetch songs with metadata
+- Create endpoint to get song recommendations
+
+---
+
+## Deliverable 2: Firebase User Data
+
+**Branch:** `feature/firebase-storage-yourInitials-versionNum`
+
+**Tasks:**
+- Set up Firebase project
+- Create user document structure
+- Save Hidden Gems to Firebase
+- Save skipped songs to Firebase
+- Save Already Liked songs to Firebase
+- Fetch user data on app load
+
+---
+
+## Deliverable 3: Recommendation Logic
+
+**Branch:** `feature/recommendations-yourInitials-versionNum`
+
+**Tasks:**
+- Create Python endpoint that takes user's Firebase data
+- Filter out skipped and already liked songs
+- Score songs based on different parameters
+- Return sorted list of recommended songs
+
+---
+
+## How to Start Working
+
+1. Clone the repo
+   ```bash
+   git clone https://github.com/Emdya/AudioLover.git
+   cd AudioLover
+   ```
+
+2. Get the latest frontend code
+   ```bash
+   git checkout feature/frontend-basicDesign-ep-v7
+   ```
+
+3. Create your branch
+   ```bash
+   git checkout -b feature/[your-deliverable]-[initials]-v1
+   ```
+
+4. Make your changes
+
+5. Commit and push
+   ```bash
+   git add .
+   git commit -m "feat: description of your changes"
+   git push -u origin feature/[your-deliverable]-[initials]-v1
+   ```
+
+6. Create a Pull Request on GitHub
+
+---
+# AudioLover Backend Deliverables
+
+## Branch Naming Convention
+
+```
+feature/[task-name]-[yourInitials]-v[versionNum]
+```
+
+Example: `feature/backend-spotify-api-ep-v1`
+
+---
+
+## Deliverable 1: Spotify API and Python Backend
+
+**Branch:** `feature/backend-spotify-api-yourInitials-versionNum`
+
+**Tasks:**
+- Set up Python Flask server
+- Set up Spotify Developer account and get API credentials
+- Create endpoint to fetch songs with metadata
+- Create endpoint to get song recommendations
+
+---
+
+## Deliverable 2: Firebase User Data
+
+**Branch:** `feature/firebase-storage-yourInitials-versionNum`
+
+**Tasks:**
+- Set up Firebase project
+- Create user document structure
+- Save Hidden Gems to Firebase
+- Save skipped songs to Firebase
+- Save Already Liked songs to Firebase
+- Fetch user data on app load
+
+---
+
+## Deliverable 3: Recommendation Logic
+
+**Branch:** `feature/recommendations-yourInitials-versionNum`
+
+**Tasks:**
+- Create Python endpoint that takes user's Firebase data
+- Filter out skipped and already liked songs
+- Score songs based on different parameters
+- Return sorted list of recommended songs
+
+---
+
+## How to Start Working
+
+1. Clone the repo
+   ```bash
+   git clone https://github.com/Emdya/AudioLover.git
+   cd AudioLover
+   ```
+
+2. Get the latest frontend code
+   ```bash
+   git checkout feature/frontend-basicDesign-ep-v7
+   ```
+
+3. Create your branch
+   ```bash
+   git checkout -b feature/[your-deliverable]-[initials]-v1
+   ```
+
+4. Make your changes
+
+5. Commit and push
+   ```bash
+   git add .
+   git commit -m "feat: description of your changes"
+   git push -u origin feature/[your-deliverable]-[initials]-v1
+   ```
+
+6. Create a Pull Request on GitHub
+
+---
+
+## Integration Order
+
+1. Firebase setup (Deliverable 2) - needed first for data storage
+2. Spotify API (Deliverable 1) - fetch real song data
+3. Recommendations (Deliverable 3) - uses Firebase data + Spotify songs
+4. Final merge into `feature/backend-complete-v1`
+
 ## Team
 
 Built by the AudioLover team
