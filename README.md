@@ -1,12 +1,44 @@
 
-
 # AudioLover
 
 A music discovery app built with React Native and Expo. Swipe through songs to find your next favorite track!
 
 ## Current Status
 
-**Frontend Only** - This is the UI/UX implementation. Backend integration and recommendation algorithm have not been implemented yet. Currently uses mock data for demonstration purposes.
+**Frontend + Firebase Integration** - The UI/UX is complete and Firebase Firestore is integrated for data persistence. User swipes are now saved to the cloud. Currently uses mock song data - Spotify API integration coming next.
+
+## Branch
+
+`feature/firebase-storage-ep-v1`
+
+## What Works Now
+
+- Swipe RIGHT (green heart) - Saves full song data to Firebase `hiddenGems`
+- Swipe LEFT (red X) - Saves song ID to Firebase `skipped`
+- Swipe UP (gray check) - Saves song ID to Firebase `alreadyLiked`
+- Data persists even after closing the app
+- Hidden Gems playlist loads from Firebase on app start
+
+## Firebase Database Structure
+
+```
+users/
+  default-user/
+    hiddenGems: [
+      {
+        id: "1",
+        title: "Midnight Drive",
+        artist: "The Night Runners",
+        album: "Urban Dreams",
+        genre: "Synthwave",
+        imageUrl: "https://...",
+        previewUrl: "https://..."
+      }
+    ]
+    skipped: ["4", "2"]
+    alreadyLiked: ["2", "1"]
+    createdAt: "2025-11-26T16:54:19.061Z"
+```
 
 ## Features
 
@@ -17,10 +49,7 @@ A music discovery app built with React Native and Expo. Swipe through songs to f
 - Audio Playback - Preview songs with play/pause controls
 - Animated UI - Dynamic gradient background with smooth animations
 - Help Tutorial - Built-in guide explaining how to use the app
-
-## Screenshots
-
-Coming soon!
+- Firebase Persistence - All swipes saved to cloud database
 
 ## Getting Started
 
@@ -38,9 +67,9 @@ Coming soon!
    cd AudioLover
    ```
 
-2. Checkout the latest branch
+2. Checkout this branch
    ```bash
-   git checkout feature/frontend-basicDesign-ep-v6
+   git checkout feature/firebase-storage-ep-v1
    ```
 
 3. Install dependencies
@@ -64,9 +93,12 @@ AudioLover/
 ├── app/
 │   ├── (tabs)/
 │   │   ├── _layout.tsx    # Tab navigation config
-│   │   └── index.tsx      # Main music swiper screen
+│   │   └── index.tsx      # Main music swiper screen (with Firebase)
 │   ├── _layout.tsx        # Root layout
 │   └── modal.tsx          # Contributors modal
+├── services/
+│   ├── firebaseConfig.ts  # Firebase connection
+│   └── firebaseStorage.ts # Save/load functions for user data
 ├── assets/
 │   └── fonts/             # Custom fonts
 ├── components/            # Reusable components
@@ -77,11 +109,34 @@ AudioLover/
 └── tsconfig.json          # TypeScript config
 ```
 
+## Firebase Functions Available
+
+```typescript
+// Initialize user (called on app start)
+initializeUser()
+
+// Save actions
+saveHiddenGem(song)      // Save full song to Hidden Gems
+saveSkipped(songId)      // Save skipped song ID
+saveAlreadyLiked(songId) // Save already liked song ID
+
+// Retrieve data
+getHiddenGems()          // Get all Hidden Gems
+getSkipped()             // Get all skipped song IDs
+getAlreadyLiked()        // Get all already liked song IDs
+getUserData()            // Get all user data at once
+
+// Other
+removeHiddenGem(songId)  // Remove song from Hidden Gems
+clearUserData()          // Clear all data (for testing)
+```
+
 ## Tech Stack
 
 - React Native - Mobile app framework
 - Expo - Development platform
 - TypeScript - Type safety
+- Firebase Firestore - Cloud database
 - React Native Reanimated - Smooth animations
 - React Native Gesture Handler - Swipe gestures
 - Expo AV - Audio playback
@@ -98,10 +153,27 @@ AudioLover/
 5. View Playlist - Tap "Hidden Gems" to see your saved songs
 6. Help - Tap the ? button for a tutorial
 
+## Remaining Deliverables
+
+### Deliverable 1: Spotify API and Python Backend
+**Branch:** `feature/backend-spotify-api-yourInitials-versionNum`
+- Set up Python Flask server
+- Set up Spotify Developer account and get API credentials
+- Create endpoint to fetch songs with metadata
+- Create endpoint to get song recommendations
+
+### Deliverable 3: Recommendation Logic
+**Branch:** `feature/recommendations-yourInitials-versionNum`
+- Create Python endpoint that takes user's Firebase data
+- Filter out skipped and already liked songs
+- Score songs based on different parameters
+- Return sorted list of recommended songs
+
 ## Contributing
 
-1. Create a new branch from `feature/frontend-basicDesign-ep-v6`
+1. Create a new branch from this one
    ```bash
+   git checkout feature/firebase-storage-ep-v1
    git checkout -b feature/your-feature-name
    ```
 
@@ -115,177 +187,6 @@ AudioLover/
    ```
 
 4. Create a Pull Request on GitHub
-
-Backend deliverables · MD
-Copy
-
-# AudioLover Backend Deliverables
-
-## Branch Naming Convention
-
-```
-feature/[task-name]-[yourInitials]-v[versionNum]
-```
-
-Example: `feature/backend-spotify-api-ep-v1`
-
----
-
-## Deliverable 1: Spotify API and Python Backend
-
-**Branch:** `feature/backend-spotify-api-yourInitials-versionNum`
-
-**Tasks:**
-- Set up Python Flask server
-- Set up Spotify Developer account and get API credentials
-- Create endpoint to fetch songs with metadata
-- Create endpoint to get song recommendations
-
----
-
-## Deliverable 2: Firebase User Data
-
-**Branch:** `feature/firebase-storage-yourInitials-versionNum`
-
-**Tasks:**
-- Set up Firebase project
-- Create user document structure
-- Save Hidden Gems to Firebase
-- Save skipped songs to Firebase
-- Save Already Liked songs to Firebase
-- Fetch user data on app load
-
----
-
-## Deliverable 3: Recommendation Logic
-
-**Branch:** `feature/recommendations-yourInitials-versionNum`
-
-**Tasks:**
-- Create Python endpoint that takes user's Firebase data
-- Filter out skipped and already liked songs
-- Score songs based on different parameters
-- Return sorted list of recommended songs
-
----
-
-## How to Start Working
-
-1. Clone the repo
-   ```bash
-   git clone https://github.com/Emdya/AudioLover.git
-   cd AudioLover
-   ```
-
-2. Get the latest frontend code
-   ```bash
-   git checkout feature/frontend-basicDesign-ep-v7
-   ```
-
-3. Create your branch
-   ```bash
-   git checkout -b feature/[your-deliverable]-[initials]-v1
-   ```
-
-4. Make your changes
-
-5. Commit and push
-   ```bash
-   git add .
-   git commit -m "feat: description of your changes"
-   git push -u origin feature/[your-deliverable]-[initials]-v1
-   ```
-
-6. Create a Pull Request on GitHub
-
----
-# AudioLover Backend Deliverables
-
-## Branch Naming Convention
-
-```
-feature/[task-name]-[yourInitials]-v[versionNum]
-```
-
-Example: `feature/backend-spotify-api-ep-v1`
-
----
-
-## Deliverable 1: Spotify API and Python Backend
-
-**Branch:** `feature/backend-spotify-api-yourInitials-versionNum`
-
-**Tasks:**
-- Set up Python Flask server
-- Set up Spotify Developer account and get API credentials
-- Create endpoint to fetch songs with metadata
-- Create endpoint to get song recommendations
-
----
-
-## Deliverable 2: Firebase User Data
-
-**Branch:** `feature/firebase-storage-yourInitials-versionNum`
-
-**Tasks:**
-- Set up Firebase project
-- Create user document structure
-- Save Hidden Gems to Firebase
-- Save skipped songs to Firebase
-- Save Already Liked songs to Firebase
-- Fetch user data on app load
-
----
-
-## Deliverable 3: Recommendation Logic
-
-**Branch:** `feature/recommendations-yourInitials-versionNum`
-
-**Tasks:**
-- Create Python endpoint that takes user's Firebase data
-- Filter out skipped and already liked songs
-- Score songs based on different parameters
-- Return sorted list of recommended songs
-
----
-
-## How to Start Working
-
-1. Clone the repo
-   ```bash
-   git clone https://github.com/Emdya/AudioLover.git
-   cd AudioLover
-   ```
-
-2. Get the latest frontend code
-   ```bash
-   git checkout feature/frontend-basicDesign-ep-v7
-   ```
-
-3. Create your branch
-   ```bash
-   git checkout -b feature/[your-deliverable]-[initials]-v1
-   ```
-
-4. Make your changes
-
-5. Commit and push
-   ```bash
-   git add .
-   git commit -m "feat: description of your changes"
-   git push -u origin feature/[your-deliverable]-[initials]-v1
-   ```
-
-6. Create a Pull Request on GitHub
-
----
-
-## Integration Order
-
-1. Firebase setup (Deliverable 2) - needed first for data storage
-2. Spotify API (Deliverable 1) - fetch real song data
-3. Recommendations (Deliverable 3) - uses Firebase data + Spotify songs
-4. Final merge into `feature/backend-complete-v1`
 
 ## Team
 
