@@ -7,7 +7,7 @@ import {
   HelpCircle,
   Pause,
   Play,
-  Volume2,
+  RefreshCw,
   X,
 } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
@@ -15,6 +15,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -45,79 +46,68 @@ import {
   saveAlreadyLiked,
   saveHiddenGem,
   saveSkipped,
-  Song
+  Song,
 } from '../../services/firebaseStorage';
+
+const MUSIC_FACTS = [
+  "The world's longest concert lasted 453 hours...",
+  "Spotify has over 100 million songs...",
+  "The most expensive musical instrument sold for $16 million...",
+  "Mozart wrote his first symphony at age 8...",
+  "Vinyl records are making a comeback...",
+  "The average song length has decreased by 30 seconds since 2000...",
+  "Music can increase workout performance by 15%...",
+  "The first music video on MTV was 'Video Killed the Radio Star'...",
+  "Listening to music releases dopamine in your brain...",
+  "The Beatles hold the record for most #1 hits...",
+  "Finland has the most metal bands per capita...",
+  "The longest recorded pop song is over 1 hour...",
+  "Cows produce more milk when listening to slow music...",
+  "The most covered song ever is 'Yesterday' by The Beatles...",
+];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.55;
 const SWIPE_THRESHOLD = 100;
 
-type SongWithGenre = {
+// API URL - change this when deploying
+const API_URL = 'http://192.168.1.94:5000';
+
+// Song type matching Spotify API response
+type SpotifySong = {
   id: string;
   title: string;
   artist: string;
+  artistId: string;
   album: string;
-  genre: string;
-  imageUrl: any;
-  previewUrl: string;
-  duration: number;
+  albumImage: string | null;
+  previewUrl: string | null;
+  popularity: number;
+  releaseDate: string;
+  explicit: boolean;
+  genres: string[];
+  durationMs: number;
+  spotifyUrl: string;
 };
 
-const mockSongsWithGenre: SongWithGenre[] = [
-  {
-    id: '1',
-    title: 'Midnight Drive',
-    artist: 'The Night Runners',
-    album: 'Urban Dreams',
-    genre: 'Synthwave',
-    imageUrl: { uri: 'https://picsum.photos/seed/neon/400/400' },
-    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    duration: 30,
-  },
-  {
-    id: '2',
-    title: 'Electric Soul',
-    artist: 'Synthwave Collective',
-    album: 'Retro Future',
-    genre: 'Electronic',
-    imageUrl: { uri: 'https://picsum.photos/seed/synth/400/400' },
-    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    duration: 30,
-  },
-  {
-    id: '3',
-    title: 'Ocean Waves',
-    artist: 'Ambient Dreams',
-    album: 'Natural Sounds',
-    genre: 'Ambient',
-    imageUrl: { uri: 'https://picsum.photos/seed/ocean/400/400' },
-    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-    duration: 30,
-  },
-  {
-    id: '4',
-    title: 'Jazz Café',
-    artist: 'Smooth Trio',
-    album: 'Evening Sessions',
-    genre: 'Jazz',
-    imageUrl: { uri: 'https://picsum.photos/seed/jazz/400/400' },
-    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
-    duration: 30,
-  },
-  {
-    id: '5',
-    title: 'Digital Horizon',
-    artist: 'Future Bass',
-    album: 'Electronic Landscapes',
-    genre: 'Future Bass',
-    imageUrl: { uri: 'https://picsum.photos/seed/digital/400/400' },
-    previewUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
-    duration: 30,
-  },
-];
+// Fetch songs from our backend API
+const fetchSongsFromAPI = async (endpoint: string = '/api/discover?limit=20'): Promise<SpotifySong[]> => {
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`);
+    const data = await response.json();
+    
+    if (data.success && data.tracks) {
+      return data.tracks;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching songs:', error);
+    return [];
+  }
+};
 
-// Animated Logo Component (no heart emoji)
+// Animated Logo Component
 const AnimatedLogo = () => {
   const slideAnim = useRef(new Animated.Value(0)).current;
 
@@ -139,11 +129,7 @@ const AnimatedLogo = () => {
   }, [slideAnim]);
 
   return (
-    <Animated.View
-      style={{
-        transform: [{ translateX: slideAnim }],
-      }}
-    >
+    <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
       <Text style={styles.headerTitle}>AUDIOLOVER</Text>
     </Animated.View>
   );
@@ -164,7 +150,6 @@ const HelpModal = ({ visible, onClose }: { visible: boolean; onClose: () => void
             </View>
 
             <View style={styles.helpContent}>
-              {/* Skip Button */}
               <View style={styles.helpItem}>
                 <View style={[styles.helpIcon, { backgroundColor: '#ef4444' }]}>
                   <X color="black" size={24} strokeWidth={3} />
@@ -177,7 +162,6 @@ const HelpModal = ({ visible, onClose }: { visible: boolean; onClose: () => void
                 </View>
               </View>
 
-              {/* Already Like Button */}
               <View style={styles.helpItem}>
                 <View style={[styles.helpIcon, { backgroundColor: '#6b7280' }]}>
                   <Check color="black" size={24} strokeWidth={3} />
@@ -190,7 +174,6 @@ const HelpModal = ({ visible, onClose }: { visible: boolean; onClose: () => void
                 </View>
               </View>
 
-              {/* Hidden Gem Button */}
               <View style={styles.helpItem}>
                 <View style={[styles.helpIcon, { backgroundColor: '#22c55e' }]}>
                   <Heart color="black" size={24} strokeWidth={3} fill="black" />
@@ -203,7 +186,6 @@ const HelpModal = ({ visible, onClose }: { visible: boolean; onClose: () => void
                 </View>
               </View>
 
-              {/* Swipe Tip */}
               <View style={styles.helpTip}>
                 <Text style={styles.helpTipText}>
                   Tip: You can also swipe cards left, right, or up!
@@ -217,7 +199,7 @@ const HelpModal = ({ visible, onClose }: { visible: boolean; onClose: () => void
   );
 };
 
-// Intense Animated Background Component
+// Animated Background Component
 const AnimatedBackground = () => {
   const animation = useRef(new Animated.Value(0)).current;
 
@@ -263,24 +245,9 @@ const AnimatedBackground = () => {
 
   return (
     <>
-      <Animated.View 
-        style={[
-          StyleSheet.absoluteFill, 
-          { backgroundColor: backgroundColor1 }
-        ]} 
-      />
-      <Animated.View 
-        style={[
-          StyleSheet.absoluteFill, 
-          { backgroundColor: backgroundColor2 }
-        ]} 
-      />
-      <Animated.View 
-        style={[
-          StyleSheet.absoluteFill, 
-          { backgroundColor: backgroundColor3 }
-        ]} 
-      />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: backgroundColor1 }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: backgroundColor2 }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: backgroundColor3 }]} />
     </>
   );
 };
@@ -292,13 +259,15 @@ const SwipeCard = ({
   onSwipe,
   isPlaying,
   onTogglePlay,
+  onOpenSpotify,
 }: {
-  song: SongWithGenre;
+  song: SpotifySong;
   index: number;
   currentIndex: number;
   onSwipe: (direction: 'left' | 'right' | 'up') => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onOpenSpotify: () => void;
 }) => {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -319,12 +288,8 @@ const SwipeCard = ({
     if (event.nativeEvent.state === State.END) {
       const { translationX, translationY, velocityX, velocityY } = event.nativeEvent;
 
-      const isSwipingVertical =
-        Math.abs(velocityY) > Math.abs(velocityX) &&
-        Math.abs(velocityY) > 500;
-      const isSwipingHorizontal =
-        Math.abs(velocityX) > Math.abs(velocityY) &&
-        Math.abs(velocityX) > 500;
+      const isSwipingVertical = Math.abs(velocityY) > Math.abs(velocityX) && Math.abs(velocityY) > 500;
+      const isSwipingHorizontal = Math.abs(velocityX) > Math.abs(velocityY) && Math.abs(velocityX) > 500;
 
       if (isSwipingVertical && translationY < -SWIPE_THRESHOLD) {
         translateY.value = withTiming(-SCREEN_HEIGHT, { duration: 300 });
@@ -356,67 +321,54 @@ const SwipeCard = ({
   };
 
   const animatedStyle = useAnimatedStyle(() => {
-    const rotate = interpolate(
-      translateX.value,
-      [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
-      [-25, 0, 25],
-      Extrapolate.CLAMP
-    );
+  const rotate = interpolate(
+    translateX.value,
+    [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+    [-25, 0, 25],
+    Extrapolate.CLAMP
+  );
 
-    const opacity = isActive
-      ? interpolate(
-          Math.abs(translateX.value),
-          [0, SCREEN_WIDTH / 2],
-          [1, 0.5],
-          Extrapolate.CLAMP
-        )
-      : isNext
-      ? 0.5
-      : 0.25;
+  const opacity = isActive
+    ? interpolate(Math.abs(translateX.value), [0, SCREEN_WIDTH / 2], [1, 0.5], Extrapolate.CLAMP)
+    : isNext ? 0.7 : 0.4;
 
-    const scale = isActive ? 1 : isNext ? 0.94 : 0.88;
-    const translateYOffset = isActive ? 0 : isNext ? 15 : 30;
-
-    return {
-      transform: [
-        { translateX: isActive ? translateX.value : 0 },
-        { translateY: isActive ? translateY.value : translateYOffset },
-        { rotate: `${isActive ? rotate : 0}deg` },
-        { scale },
-      ],
-      opacity,
-      zIndex: isActive ? 10 : isNext ? 5 : 0,
-    };
+  const scale = withSpring(isActive ? 1 : isNext ? 0.94 : 0.88, {
+    damping: 15,
+    stiffness: 100,
+  });
+  
+  const translateYOffset = withSpring(isActive ? 0 : isNext ? 15 : 30, {
+    damping: 15,
+    stiffness: 100,
   });
 
+  return {
+    transform: [
+      { translateX: isActive ? translateX.value : 0 },
+      { translateY: isActive ? translateY.value : translateYOffset },
+      { rotate: `${isActive ? rotate : 0}deg` },
+      { scale },
+    ],
+    opacity: withSpring(opacity, { damping: 15, stiffness: 100 }),
+    zIndex: isActive ? 10 : isNext ? 5 : 0,
+  };
+});
+
   const skipOpacity = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      translateX.value,
-      [-150, -50, 0],
-      [1, 0.5, 0],
-      Extrapolate.CLAMP
-    ),
+    opacity: interpolate(translateX.value, [-150, -50, 0], [1, 0.5, 0], Extrapolate.CLAMP),
   }));
 
   const likeOpacity = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      translateX.value,
-      [0, 50, 150],
-      [0, 0.5, 1],
-      Extrapolate.CLAMP
-    ),
+    opacity: interpolate(translateX.value, [0, 50, 150], [0, 0.5, 1], Extrapolate.CLAMP),
   }));
 
   const addOpacity = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      translateY.value,
-      [-150, -50, 0],
-      [1, 0.5, 0],
-      Extrapolate.CLAMP
-    ),
+    opacity: interpolate(translateY.value, [-150, -50, 0], [1, 0.5, 0], Extrapolate.CLAMP),
   }));
 
   if (!isActive && !isNext && !isNextNext) return null;
+
+  const genre = song.genres && song.genres.length > 0 ? song.genres[0] : 'Music';
 
   return (
     <PanGestureHandler
@@ -449,7 +401,10 @@ const SwipeCard = ({
 
         <View style={styles.card}>
           <View style={styles.imageContainer}>
-            <Image source={song.imageUrl} style={styles.albumImage} />
+            <Image 
+              source={{ uri: song.albumImage || 'https://via.placeholder.com/400' }} 
+              style={styles.albumImage} 
+            />
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.9)']}
               style={styles.gradient}
@@ -457,30 +412,31 @@ const SwipeCard = ({
 
             <View style={styles.genreBadge}>
               <BlurView intensity={80} tint="dark" style={styles.blurView}>
-                <Text style={styles.genreText}>{song.genre}</Text>
+                <Text style={styles.genreText}>{genre.toUpperCase()}</Text>
               </BlurView>
             </View>
 
+            
+
             {isActive && (
               <>
-                <Pressable
-                  onPress={onTogglePlay}
-                  style={styles.playButton}
-                >
-                  <BlurView intensity={40} tint="dark" style={styles.playButtonBlur}>
-                    {isPlaying ? (
-                      <Pause color="white" size={32} />
-                    ) : (
-                      <Play color="white" size={32} style={{ marginLeft: 4 }} />
-                    )}
-                  </BlurView>
-                </Pressable>
-
-                <View style={styles.volumeIndicator}>
-                  <BlurView intensity={60} tint="dark" style={styles.volumeBlur}>
-                    <Volume2 color="white" size={16} />
-                  </BlurView>
-                </View>
+                {song.previewUrl ? (
+                  <Pressable onPress={onTogglePlay} style={styles.playButton}>
+                    <BlurView intensity={40} tint="dark" style={styles.playButtonBlur}>
+                      {isPlaying ? (
+                        <Pause color="white" size={32} />
+                      ) : (
+                        <Play color="white" size={32} style={{ marginLeft: 4 }} />
+                      )}
+                    </BlurView>
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={onOpenSpotify} style={styles.playButton}>
+                    <BlurView intensity={40} tint="dark" style={styles.playButtonBlur}>
+                      <Text style={styles.spotifyText}>Open in Spotify</Text>
+                    </BlurView>
+                  </Pressable>
+                )}
               </>
             )}
           </View>
@@ -493,7 +449,7 @@ const SwipeCard = ({
               {song.artist}
             </Text>
             <Text style={styles.album} numberOfLines={1}>
-              {song.album}
+              {song.album} • {song.releaseDate?.substring(0, 4)}
             </Text>
           </View>
         </View>
@@ -501,36 +457,198 @@ const SwipeCard = ({
     </PanGestureHandler>
   );
 };
+//Hi
+// Loading Screen Component
+const LoadingScreen = () => {
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const [factIndex, setFactIndex] = useState(Math.floor(Math.random() * MUSIC_FACTS.length));
+  const backgroundAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Spin animation
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Float animation (up and down)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -15,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Background animation
+    Animated.loop(
+      Animated.timing(backgroundAnim, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: false,
+      })
+    ).start();
+
+    const interval = setInterval(() => {
+      setFactIndex(Math.floor(Math.random() * MUSIC_FACTS.length));
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const bgColor1 = backgroundAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['rgba(139,92,246,0.8)', 'rgba(59,130,246,0.8)', 'rgba(139,92,246,0.8)'],
+  });
+
+  const bgColor2 = backgroundAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['rgba(59,130,246,0.6)', 'rgba(139,92,246,0.6)', 'rgba(59,130,246,0.6)'],
+  });
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0a0a0a' }}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bgColor1 }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: bgColor2, opacity: 0.7 }]} />
+      
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+        {/* Floating + Spinning Disc */}
+        <Animated.View style={{ 
+          transform: [{ rotate: spin }, { translateY: floatAnim }], 
+          marginBottom: 40 
+        }}>
+          <View style={{
+            width: 120,
+            height: 120,
+            borderRadius: 60,
+            backgroundColor: '#1a1a1a',
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 3,
+            borderColor: '#333',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.5,
+            shadowRadius: 20,
+            elevation: 15,
+          }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: '#a78bfa',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#1a1a1a' }} />
+            </View>
+            <View style={{ position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} />
+            <View style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} />
+            <View style={{ position: 'absolute', width: 60, height: 60, borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} />
+          </View>
+        </Animated.View>
+
+        <Text style={{ 
+          fontSize: 24, 
+          fontWeight: '900', 
+          color: '#fff', 
+          letterSpacing: 6, 
+          fontFamily: 'monospace', 
+          marginBottom: 40 
+        }}>
+          LOADING
+        </Text>
+        
+        <View style={{ alignItems: 'center', paddingHorizontal: 20 }}>
+          <Text style={{ 
+            fontSize: 11, 
+            fontWeight: '800', 
+            color: 'rgba(255,255,255,0.4)', 
+            letterSpacing: 4, 
+            fontFamily: 'monospace', 
+            marginBottom: 12 
+          }}>
+            DID YOU KNOW?
+          </Text>
+          <Text style={{ 
+            fontSize: 18, 
+            color: '#fff', 
+            textAlign: 'center', 
+            fontWeight: '600',
+            fontStyle: 'italic',
+            lineHeight: 28,
+            opacity: 0.95,
+            textShadowColor: 'rgba(0,0,0,0.3)',
+            textShadowOffset: { width: 0, height: 2 },
+            textShadowRadius: 4,
+          }}>
+            "{MUSIC_FACTS[factIndex]}"
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
 
 export default function MusicSwiper() {
+  const [songs, setSongs] = useState<SpotifySong[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [hiddenGems, setHiddenGems] = useState<SongWithGenre[]>([]);
+  const [hiddenGems, setHiddenGems] = useState<SpotifySong[]>([]);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
 
-  const currentSong = mockSongsWithGenre[currentIndex];
+  const currentSong = songs[currentIndex];
 
-  // Initialize Firebase and load user data on app start
+  // Load songs from API and Firebase on app start
   useEffect(() => {
     const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
       try {
+        // Initialize Firebase user
         await initializeUser();
+        
+        // Load Hidden Gems from Firebase
         const gems = await getHiddenGems();
-        // Convert Firebase data back to our format
-        const formattedGems = gems.map((gem: any) => ({
-          ...gem,
-          imageUrl: { uri: gem.imageUrl }
-        }));
-        setHiddenGems(formattedGems);
-      } catch (error) {
-        console.error('Error loading data:', error);
+        setHiddenGems(gems as SpotifySong[]);
+        
+        // Fetch songs from Spotify API
+        const spotifySongs = await fetchSongsFromAPI('/api/discover?limit=20');
+        
+        if (spotifySongs.length === 0) {
+          setError('Could not load songs. Make sure the backend server is running.');
+        } else {
+          setSongs(spotifySongs);
+        }
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Failed to connect to server. Is the backend running?');
       } finally {
         setIsLoading(false);
       }
     };
+    
     loadData();
   }, []);
 
@@ -555,6 +673,14 @@ export default function MusicSwiper() {
   };
 
   const togglePlay = async () => {
+    if (!currentSong?.previewUrl) {
+      // Open Spotify if no preview
+      if (currentSong?.spotifyUrl) {
+        Linking.openURL(currentSong.spotifyUrl);
+      }
+      return;
+    }
+
     try {
       if (!soundRef.current) {
         const { sound } = await Audio.Sound.createAsync(
@@ -586,79 +712,88 @@ export default function MusicSwiper() {
     }
   };
 
+  const openSpotify = () => {
+    if (currentSong?.spotifyUrl) {
+      Linking.openURL(currentSong.spotifyUrl);
+    }
+  };
+
   const handleSwipe = async (direction: 'left' | 'right' | 'up') => {
+    if (!currentSong) return;
+
     try {
+      const songToSave: Song = {
+        id: currentSong.id,
+        title: currentSong.title,
+        artist: currentSong.artist,
+        album: currentSong.album,
+        genre: currentSong.genres?.[0] || 'Unknown',
+        imageUrl: currentSong.albumImage || '',
+        previewUrl: currentSong.previewUrl || '',
+      };
+
       if (direction === 'right') {
-        // Save to Hidden Gems in Firebase
-        const songToSave: Song = {
-          id: currentSong.id,
-          title: currentSong.title,
-          artist: currentSong.artist,
-          album: currentSong.album,
-          genre: currentSong.genre,
-          imageUrl: currentSong.imageUrl.uri,
-          previewUrl: currentSong.previewUrl,
-        };
         await saveHiddenGem(songToSave);
         setHiddenGems([...hiddenGems, currentSong]);
       } else if (direction === 'left') {
-        // Save to skipped in Firebase
         await saveSkipped(currentSong.id);
       } else if (direction === 'up') {
-        // Save to already liked in Firebase
         await saveAlreadyLiked(currentSong.id);
       }
     } catch (error) {
       console.error('Error saving to Firebase:', error);
     }
 
+    // Move to next song or fetch more
     setTimeout(() => {
-      if (currentIndex < mockSongsWithGenre.length - 1) {
+      if (currentIndex < songs.length - 1) {
         setCurrentIndex(currentIndex + 1);
       } else {
-        setCurrentIndex(0);
+        // Fetch more songs when we run out
+        loadMoreSongs();
       }
     }, 300);
   };
 
-  const handleButtonSwipe = async (direction: 'left' | 'right' | 'up') => {
-    try {
-      if (direction === 'right') {
-        // Save to Hidden Gems in Firebase
-        const songToSave: Song = {
-          id: currentSong.id,
-          title: currentSong.title,
-          artist: currentSong.artist,
-          album: currentSong.album,
-          genre: currentSong.genre,
-          imageUrl: currentSong.imageUrl.uri,
-          previewUrl: currentSong.previewUrl,
-        };
-        await saveHiddenGem(songToSave);
-        setHiddenGems([...hiddenGems, currentSong]);
-      } else if (direction === 'left') {
-        // Save to skipped in Firebase
-        await saveSkipped(currentSong.id);
-      } else if (direction === 'up') {
-        // Save to already liked in Firebase
-        await saveAlreadyLiked(currentSong.id);
-      }
-    } catch (error) {
-      console.error('Error saving to Firebase:', error);
-    }
-
-    if (currentIndex < mockSongsWithGenre.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
+  const loadMoreSongs = async () => {
+    setIsLoading(true);
+    const moreSongs = await fetchSongsFromAPI('/api/discover?limit=20');
+    if (moreSongs.length > 0) {
+      setSongs(moreSongs);
       setCurrentIndex(0);
     }
+    setIsLoading(false);
   };
 
+  const handleButtonSwipe = async (direction: 'left' | 'right' | 'up') => {
+    await handleSwipe(direction);
+  };
+
+  // Loading state
   if (isLoading) {
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <LoadingScreen />
+    </GestureHandlerRootView>
+  );
+}
+
+  // Error state
+  if (error) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: '#fff', fontSize: 18 }}>Loading...</Text>
-      </View>
+      <GestureHandlerRootView style={styles.container}>
+        <AnimatedBackground />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable style={styles.retryButton} onPress={loadMoreSongs}>
+            <RefreshCw color="white" size={20} />
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+          <Text style={styles.hintText}>
+            Run: cd backend && python3 app.py
+          </Text>
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
@@ -669,26 +804,18 @@ export default function MusicSwiper() {
       <View style={styles.header}>
         <AnimatedLogo />
         <View style={styles.headerRight}>
-          <Pressable
-            onPress={() => setShowHelp(true)}
-            style={styles.helpButton}
-          >
+          <Pressable onPress={() => setShowHelp(true)} style={styles.helpButton}>
             <HelpCircle color="#000" size={20} />
           </Pressable>
-          <Pressable
-            onPress={() => setShowPlaylist(true)}
-            style={styles.playlistButton}
-          >
+          <Pressable onPress={() => setShowPlaylist(true)} style={styles.playlistButton}>
             <Heart color="#000" size={16} />
-            <Text style={styles.playlistText}>
-              Hidden Gems ({hiddenGems.length})
-            </Text>
+            <Text style={styles.playlistText}>Hidden Gems ({hiddenGems.length})</Text>
           </Pressable>
         </View>
       </View>
 
       <View style={styles.cardsContainer}>
-        {mockSongsWithGenre.map((song, index) => (
+        {songs.map((song, index) => (
           <SwipeCard
             key={song.id}
             song={song}
@@ -697,6 +824,7 @@ export default function MusicSwiper() {
             onSwipe={handleSwipe}
             isPlaying={isPlaying && index === currentIndex}
             onTogglePlay={togglePlay}
+            onOpenSpotify={openSpotify}
           />
         ))}
       </View>
@@ -727,11 +855,7 @@ export default function MusicSwiper() {
       <ContributorsModal />
       <HelpModal visible={showHelp} onClose={() => setShowHelp(false)} />
 
-      <Modal
-        visible={showPlaylist}
-        animationType="slide"
-        transparent={false}
-      >
+      <Modal visible={showPlaylist} animationType="slide" transparent={false}>
         <View style={styles.playlistModal}>
           <View style={styles.playlistHeader}>
             <Text style={styles.playlistTitle}>HIDDEN GEMS</Text>
@@ -747,8 +871,19 @@ export default function MusicSwiper() {
               </Text>
             ) : (
               hiddenGems.map((song, index) => (
-                <View key={`${song.id}-${index}`} style={styles.playlistItem}>
-                  <Image source={song.imageUrl} style={styles.playlistImage} />
+                <Pressable 
+                  key={`${song.id}-${index}`} 
+                  style={styles.playlistItem}
+                  onPress={() => {
+                    if (song.spotifyUrl) {
+                      Linking.openURL(song.spotifyUrl);
+                    }
+                  }}
+                >
+                  <Image 
+                    source={{ uri: song.albumImage || 'https://via.placeholder.com/60' }} 
+                    style={styles.playlistImage} 
+                  />
                   <View style={styles.playlistInfo}>
                     <Text style={styles.playlistSongTitle} numberOfLines={1}>
                       {song.title}
@@ -757,7 +892,7 @@ export default function MusicSwiper() {
                       {song.artist}
                     </Text>
                   </View>
-                </View>
+                </Pressable>
               ))
             )}
           </ScrollView>
@@ -771,6 +906,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 18,
+    marginTop: 20,
+    fontFamily: 'monospace',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontFamily: 'monospace',
+  },
+  hintText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 20,
+    fontFamily: 'monospace',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#a78bfa',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   header: {
     flexDirection: 'row',
@@ -938,6 +1113,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
   },
+  popularityBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
   blurView: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -948,6 +1130,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'monospace',
     letterSpacing: 1,
+  },
+  popularityText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   playButton: {
     position: 'absolute',
@@ -966,6 +1153,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(139,92,246,0.4)',
+  },
+  spotifyText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   volumeIndicator: {
     position: 'absolute',

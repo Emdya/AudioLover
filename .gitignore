@@ -42,3 +42,5 @@ yarn-error.*
 backend/.env
 backend/.cache
 backend/__pycache__/
+package-lock.json
+package-lock.json
