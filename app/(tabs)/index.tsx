@@ -20,7 +20,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 import {
   GestureHandlerRootView,
@@ -37,6 +37,16 @@ import AnimatedReanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import ContributorsModal from '../modal';
+
+// Firebase imports
+import {
+  getHiddenGems,
+  initializeUser,
+  saveAlreadyLiked,
+  saveHiddenGem,
+  saveSkipped,
+  Song
+} from '../../services/firebaseStorage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
@@ -196,7 +206,7 @@ const HelpModal = ({ visible, onClose }: { visible: boolean; onClose: () => void
               {/* Swipe Tip */}
               <View style={styles.helpTip}>
                 <Text style={styles.helpTipText}>
-                  💡 Tip: You can also swipe cards left, right, or up!
+                  Tip: You can also swipe cards left, right, or up!
                 </Text>
               </View>
             </View>
@@ -498,9 +508,31 @@ export default function MusicSwiper() {
   const [hiddenGems, setHiddenGems] = useState<SongWithGenre[]>([]);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const soundRef = useRef<Audio.Sound | null>(null);
 
   const currentSong = mockSongsWithGenre[currentIndex];
+
+  // Initialize Firebase and load user data on app start
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await initializeUser();
+        const gems = await getHiddenGems();
+        // Convert Firebase data back to our format
+        const formattedGems = gems.map((gem: any) => ({
+          ...gem,
+          imageUrl: { uri: gem.imageUrl }
+        }));
+        setHiddenGems(formattedGems);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -554,9 +586,30 @@ export default function MusicSwiper() {
     }
   };
 
-  const handleSwipe = (direction: 'left' | 'right' | 'up') => {
-    if (direction === 'right') {
-      setHiddenGems([...hiddenGems, currentSong]);
+  const handleSwipe = async (direction: 'left' | 'right' | 'up') => {
+    try {
+      if (direction === 'right') {
+        // Save to Hidden Gems in Firebase
+        const songToSave: Song = {
+          id: currentSong.id,
+          title: currentSong.title,
+          artist: currentSong.artist,
+          album: currentSong.album,
+          genre: currentSong.genre,
+          imageUrl: currentSong.imageUrl.uri,
+          previewUrl: currentSong.previewUrl,
+        };
+        await saveHiddenGem(songToSave);
+        setHiddenGems([...hiddenGems, currentSong]);
+      } else if (direction === 'left') {
+        // Save to skipped in Firebase
+        await saveSkipped(currentSong.id);
+      } else if (direction === 'up') {
+        // Save to already liked in Firebase
+        await saveAlreadyLiked(currentSong.id);
+      }
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
     }
 
     setTimeout(() => {
@@ -568,9 +621,30 @@ export default function MusicSwiper() {
     }, 300);
   };
 
-  const handleButtonSwipe = (direction: 'left' | 'right' | 'up') => {
-    if (direction === 'right') {
-      setHiddenGems([...hiddenGems, currentSong]);
+  const handleButtonSwipe = async (direction: 'left' | 'right' | 'up') => {
+    try {
+      if (direction === 'right') {
+        // Save to Hidden Gems in Firebase
+        const songToSave: Song = {
+          id: currentSong.id,
+          title: currentSong.title,
+          artist: currentSong.artist,
+          album: currentSong.album,
+          genre: currentSong.genre,
+          imageUrl: currentSong.imageUrl.uri,
+          previewUrl: currentSong.previewUrl,
+        };
+        await saveHiddenGem(songToSave);
+        setHiddenGems([...hiddenGems, currentSong]);
+      } else if (direction === 'left') {
+        // Save to skipped in Firebase
+        await saveSkipped(currentSong.id);
+      } else if (direction === 'up') {
+        // Save to already liked in Firebase
+        await saveAlreadyLiked(currentSong.id);
+      }
+    } catch (error) {
+      console.error('Error saving to Firebase:', error);
     }
 
     if (currentIndex < mockSongsWithGenre.length - 1) {
@@ -579,6 +653,14 @@ export default function MusicSwiper() {
       setCurrentIndex(0);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: '#fff', fontSize: 18 }}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={styles.container}>
