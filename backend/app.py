@@ -4,27 +4,19 @@ import base64
 import urllib.parse
 import time
 
-# -----------------------------
 #  SPOTIFY APP CREDENTIALS
-# -----------------------------
-CLIENT_ID = "99456ed3300249cdb0dd5eea8b9334a9"
-CLIENT_SECRET = "172e57cfa7c4479690022ddb71582947"
+CLIENT_ID = "YOUR_CLIENT_ID"
+CLIENT_SECRET = "YOUR_CLIENT_SECRET"
 REDIRECT_URI = "http://127.0.0.1:5001/callback"
 
 SCOPES = "user-read-email user-read-private user-read-recently-played user-top-read"
 
 app = Flask(__name__)
 
-# -----------------------------------------
 #  TOKEN STORAGE (simple in-memory version)
-#  For a hackathon this is fine.
-# -----------------------------------------
 user_tokens = {}   # stores: access_token, refresh_token, expires_at
 
-
-# -----------------------------------------
-#  Helper: Exchange code for access token
-# -----------------------------------------
+# Helper: Exchange code for access token
 def exchange_code_for_token(code):
     token_url = "https://accounts.spotify.com/api/token"
 
@@ -40,9 +32,7 @@ def exchange_code_for_token(code):
     return response.json()
 
 
-# -----------------------------------------
-#  Helper: Refresh access token when expired
-# -----------------------------------------
+# Helper: Refresh access token when expired
 def refresh_access_token(refresh_token):
     token_url = "https://accounts.spotify.com/api/token"
 
@@ -57,9 +47,7 @@ def refresh_access_token(refresh_token):
     return response.json()
 
 
-# -----------------------------------------
-#  1) LOGIN ROUTE → Sends user to Spotify
-# -----------------------------------------
+# LOGIN ROUTE → Sends user to Spotify
 @app.route("/login")
 def login():
     auth_url = (
@@ -72,9 +60,7 @@ def login():
     return redirect(auth_url)
 
 
-# --------------------------------------------------
-#  2) CALLBACK ROUTE → Spotify redirects user here
-# --------------------------------------------------
+# CALLBACK ROUTE → Spotify redirects user here
 @app.route("/callback")
 def callback():
     code = request.args.get("code")
@@ -93,9 +79,7 @@ def callback():
     return {"status": "success", "message": "User authenticated!"}
 
 
-# --------------------------------------------------
-#  Helper: Ensure access token is still valid
-# --------------------------------------------------
+# Helper: Ensure access token is still valid
 def get_valid_access_token():
     # If first time
     if "access_token" not in user_tokens:
@@ -109,10 +93,7 @@ def get_valid_access_token():
 
     return user_tokens["access_token"]
 
-
-# --------------------------------------------------
-#  3) GET USER TOP TRACKS
-# --------------------------------------------------
+# GET USER TOP TRACKS
 @app.route("/user/top-tracks")
 def top_tracks():
     token = get_valid_access_token()
@@ -128,9 +109,7 @@ def top_tracks():
     return response.json()
 
 
-# --------------------------------------------------
-#  4) TRACK METADATA ENDPOINT
-# --------------------------------------------------
+# TRACK METADATA ENDPOINT
 @app.route("/track/<track_id>")
 def track_metadata(track_id):
     from spotify_api import get_track_metadata, extract_features
@@ -140,9 +119,7 @@ def track_metadata(track_id):
     return jsonify(cleaned)
 
 
-# --------------------------------------------------
-#  5) AUDIO FEATURES ENDPOINT
-# --------------------------------------------------
+#  AUDIO FEATURES ENDPOINT
 @app.route("/audio-features/<track_id>")
 def audio_features(track_id):
     from spotify_api import get_audio_features
@@ -155,8 +132,6 @@ def audio_features(track_id):
     return jsonify(audio)
 
 
-# --------------------------------------------------
 #  RUN THE SERVER
-# --------------------------------------------------
 if __name__ == "__main__":
     app.run(port=5001, debug=True)

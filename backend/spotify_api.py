@@ -4,10 +4,12 @@ print("RUNNING FILE:", os.path.abspath(__file__))
 import requests
 import base64
 
-CLIENT_ID = "99456ed3300249cdb0dd5eea8b9334a9"
-CLIENT_SECRET = "172e57cfa7c4479690022ddb71582947"
+CLIENT_ID = "YOUR_CLIENT_ID"
+CLIENT_SECRET = "YOUR_CLIENT_SECRET"
 
-def get_access_token():
+
+# APP-ONLY TOKEN (client credentials)
+def get_app_access_token():
     auth_string = f"{CLIENT_ID}:{CLIENT_SECRET}"
     b64_auth = base64.b64encode(auth_string.encode()).decode()
 
@@ -19,16 +21,18 @@ def get_access_token():
     data = {"grant_type": "client_credentials"}
 
     response = requests.post(url, headers=headers, data=data)
-    print("RESPONSE JSON:", response.json())
     return response.json()["access_token"]
 
+
+# TRACK METADATA (does NOT require user token)
 def get_track_metadata(track_id):
-    token = get_access_token()
+    token = get_app_access_token()
     url = f"https://api.spotify.com/v1/tracks/{track_id}"
     headers = {"Authorization": f"Bearer {token}"}
 
     response = requests.get(url, headers=headers)
     return response.json()
+
 
 def extract_features(track_json):
     return {
@@ -41,25 +45,43 @@ def extract_features(track_json):
         "explicit": track_json["explicit"]
     }
 
-def get_audio_features(track_id):
-    token = get_access_token()
-    url = f"https://api.spotify.com/v1/audio-features/{track_id}"
-    headers = {"Authorization": f"Bearer {token}"}
+
+
+# USER TOKEN FUNCTIONS (these need user login)
+
+# Top Artists
+def get_user_top_artists(user_token, limit=10):
+    url = f"https://api.spotify.com/v1/me/top/artists?limit={limit}"
+    headers = {"Authorization": f"Bearer {user_token}"}
+
     response = requests.get(url, headers=headers)
     return response.json()
 
-if __name__ == "__main__":
-    print("RUNNING FILE:", __file__)
 
-    # Full metadata
-    track = get_track_metadata("0VjIjW4GlUZAMYd2vXMi3b")
-    print("FULL METADATA:", track)
+# Top Tracks
+def get_user_top_tracks(user_token, limit=10):
+    url = f"https://api.spotify.com/v1/me/top/tracks?limit={limit}"
+    headers = {"Authorization": f"Bearer {user_token}"}
 
-    # Cleaned features
-    cleaned = extract_features(track)
-    print("CLEANED FEATURES:", cleaned)
+    response = requests.get(url, headers=headers)
+    return response.json()
 
-    # Audio features
-    audio = get_audio_features("0VjIjW4GlUZAMYd2vXMi3b")
-    print("AUDIO FEATURES:", audio)
+
+# Recently played
+def get_recent_tracks(user_token, limit=10):
+    url = f"https://api.spotify.com/v1/me/player/recently-played?limit={limit}"
+    headers = {"Authorization": f"Bearer {user_token}"}
+
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
+# Audio features ( using user token)
+def get_audio_features(track_id, user_token):
+    url = f"https://api.spotify.com/v1/audio-features/{track_id}"
+    headers = {"Authorization": f"Bearer {user_token}"}
+
+    response = requests.get(url, headers=headers)
+    return response.json()
+
 
